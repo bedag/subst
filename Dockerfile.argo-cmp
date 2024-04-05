@@ -7,7 +7,7 @@ ARG TARGETARCH
 
 WORKDIR /app/
 ADD . .
-RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -ldflags="-w -s -X github.com/buttahtoast/subst/subst/cmd.Version={{ .Tag }} -X github.com/buttahtoast/subst/subst/cmd.GitCommit={{ .Commit }} -X github.com/buttahtoast/subst/subst/cmd.BuildDate={{ .Date }}" -o subst ./subst/main.go
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -ldflags="-w -s -X github.com/bedag/subst/subst/cmd.Version={{ .Tag }} -X github.com/bedag/subst/subst/cmd.GitCommit={{ .Commit }} -X github.com/bedag/subst/subst/cmd.BuildDate={{ .Date }}" -o subst ./subst/main.go
 
 
 FROM --platform=${TARGETPLATFORM:-linux/amd64} scratch

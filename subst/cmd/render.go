@@ -5,9 +5,9 @@ import (
 	"time"
 
 	"github.com/MakeNowJust/heredoc"
-	"github.com/buttahtoast/subst/internal/utils"
-	"github.com/buttahtoast/subst/pkg/config"
-	"github.com/buttahtoast/subst/pkg/subst"
+	"github.com/bedag/subst/internal/utils"
+	"github.com/bedag/subst/pkg/config"
+	"github.com/bedag/subst/pkg/subst"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	flag "github.com/spf13/pflag"

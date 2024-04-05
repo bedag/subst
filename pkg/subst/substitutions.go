@@ -8,9 +8,9 @@ import (
 	"regexp"
 	"text/template"
 
-	decrypt "github.com/buttahtoast/pkg/decryptors"
-	"github.com/buttahtoast/subst/internal/utils"
-	"github.com/buttahtoast/subst/internal/wrapper"
+	decrypt "github.com/bedag/subst/internal/decryptors"
+	"github.com/bedag/subst/internal/utils"
+	"github.com/bedag/subst/internal/wrapper"
 	"github.com/geofffranks/spruce"
 	"github.com/sirupsen/logrus"
 	"sigs.k8s.io/kustomize/api/resmap"

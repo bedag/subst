@@ -110,7 +110,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# https://github.com/buttahtoast/ejsonMerger/blob/master/ejson-merger.sh
+# https://github.com/bedag/ejsonMerger/blob/master/ejson-merger.sh
 # Main Function
 main() {
 

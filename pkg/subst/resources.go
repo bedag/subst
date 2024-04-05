@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/buttahtoast/subst/internal/utils"
+	"github.com/bedag/subst/internal/utils"
 	"sigs.k8s.io/kustomize/api/provider"
 )
 

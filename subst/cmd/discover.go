@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/MakeNowJust/heredoc"
-	"github.com/buttahtoast/subst/pkg/config"
+	"github.com/bedag/subst/pkg/config"
 	"github.com/spf13/cobra"
 )
 

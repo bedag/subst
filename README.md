@@ -53,7 +53,7 @@ Install it with the [ArgoCD community chart](https://github.com/argoproj/argo-he
       extraContainers:
       - name: cmp-subst
         args: [/var/run/argocd/argocd-cmp-server]
-        image: ghcr.io/buttahtoast/subst-cmp:v0.3.0
+        image: ghcr.io/bedag/subst-cmp:v0.3.0
         imagePullPolicy: Always
         securityContext:
           allowPrivilegeEscalation: false
@@ -197,18 +197,18 @@ For all decryptors you can create a kubernetes secret, which contains the privat
 **Brew**
 
 ```bash
-brew tap buttahtoast/subst
+brew tap bedag/subst
 ```
 
 **Docker**
 
 ```bash
-docker run -it ghcr.io/buttahtoast/subst -h
+docker run -it ghcr.io/bedag/subst -h
 ```
 
 **Github Releases**
 
-https://github.com/buttahtoast/subst/releases
+https://github.com/bedag/subst/releases
 
 
 ## ArgoCD Plugin
