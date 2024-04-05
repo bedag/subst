@@ -1,6 +1,6 @@
 project_name: subst
 env:
-  - COSIGN_EXPERIMENTAL=true
+  - COSIGN_EXPERIMENTAL=false
   - GO111MODULE=on
 before:
   hooks:
@@ -164,23 +164,23 @@ changelog:
       order: 9999
 sboms:
   - artifacts: archive
-signs:
-- cmd: cosign
-  args:
-  - "sign-blob"
-  - "--output-signature=${signature}"
-  - "${artifact}"
-  - "--yes"
-  artifacts: all
-docker_signs:
-- cmd: cosign
-  artifacts: manifests
-  output: true
-  args:
-  - 'sign'
-  - "--output-signature=${signature}"
-  - '${artifact}@${digest}'
-  - --yes
+# signs:
+# - cmd: cosign
+#   args:
+#   - "sign-blob"
+#   - "--output-signature=${signature}"
+#   - "${artifact}"
+#   - "--yes"
+#   artifacts: all
+# docker_signs:
+# - cmd: cosign
+#   artifacts: manifests
+#   output: true
+#   args:
+#   - 'sign'
+#   - "--output-signature=${signature}"
+#   - '${artifact}@${digest}'
+#   - --yes
 #brews:
 #  - tap:
 #      owner: bedag

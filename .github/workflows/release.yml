@@ -19,7 +19,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
       - uses: docker/setup-buildx-action@4b4e9c3e2d4531116a6f8ba8e71fc6e2cb6e6c8c # v2
-      - uses: sigstore/cosign-installer@v3.0.3
+      # - uses: sigstore/cosign-installer@v3.0.3
       - uses: anchore/sbom-action/download-syft@v0.14.2
       - name: ghcr-login
         if: startsWith(github.ref, 'refs/tags/v')
@@ -30,17 +30,17 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Set up Go
         uses: actions/setup-go@v4
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@main
-        with:
-          cosign-release: 'v1.13.1'
+      # - name: Install Cosign
+      #   uses: sigstore/cosign-installer@main
+      #   with:
+      #     cosign-release: 'v1.13.1'
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v4
         with:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          COSIGN_PWD: ${{ secrets.COSIGN_PWD }}
+          # COSIGN_PWD: ${{ secrets.COSIGN_PWD }}
 
 
 
