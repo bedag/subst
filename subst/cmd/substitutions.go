@@ -40,6 +40,12 @@ func substitutions(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+
+	err = m.BuildSubstitutions()
+	if err != nil {
+		return err
+	}
+
 	if m != nil {
 		if len(m.Substitutions.Subst) > 0 {
 			if configuration.Output == "json" {
