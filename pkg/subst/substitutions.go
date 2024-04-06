@@ -87,12 +87,12 @@ func (s *Substitutions) Add(data map[interface{}]interface{}, optimistic bool) (
 
 	tree, err := s.Eval(data, nil, optimistic)
 	if err != nil {
-		return fmt.Errorf("failed to build subtitutions: %s", err)
+		return fmt.Errorf("failed to build substitutions: %s", err)
 	}
 
 	merge, err := spruce.Merge(s.Get(), tree)
 	if err != nil {
-		return fmt.Errorf("could not merge manifest with subtitutions: %s", err)
+		return fmt.Errorf("could not merge manifest with substitutions: %s", err)
 	}
 
 	s.Subst = merge
@@ -111,7 +111,7 @@ func (s *Substitutions) Eval(data map[interface{}]interface{}, substs map[interf
 
 	merge, err := spruce.Merge(data, sub)
 	if err != nil {
-		return nil, fmt.Errorf("could not merge manifest with subtitutions: %s", err)
+		return nil, fmt.Errorf("could not merge manifest with substitutions: %s", err)
 	}
 
 	if optimistic {
