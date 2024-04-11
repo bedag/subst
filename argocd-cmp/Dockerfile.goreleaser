@@ -8,7 +8,7 @@ ENV ARGOCD_EXEC_TIMEOUT=90s
 COPY subst /subst
 COPY argocd-cmp/cmp.yaml /home/argocd/cmp-server/config/plugin.yaml
 COPY argocd-cmp/entrypoint.sh /entrypoint.sh
-COPY --from=helm /app/linux-amd64/helm /helm
+COPY --from=helm /app/linux-amd64/helm /usr/local/bin/helmV3
 RUN adduser -H -D -s /bin/bash -G nobody -u 999 argocd && \
     chmod +x /entrypoint.sh
 USER argocd:nobody
