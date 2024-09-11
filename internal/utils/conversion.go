@@ -13,7 +13,7 @@ import (
 
 // Convert converts a map[string]interface{} to a map[interface{}]interface{}.
 func ToInterface(inputMap map[string]interface{}) map[interface{}]interface{} {
-	var convertedMap = make(map[interface{}]interface{})
+	var convertedMap = make(map[interface{}]interface{}, len(inputMap))
 	for key, value := range inputMap {
 		convertedMap[key] = value
 	}
@@ -28,7 +28,7 @@ func ToMap(i map[interface{}]interface{}) map[string]interface{} {
 
 // convert map[string]interface{} to map[string]string (Recursion)
 func mapify(input map[interface{}]interface{}) map[string]interface{} {
-	output := make(map[string]interface{})
+	output := make(map[string]interface{}, len(input))
 	for k, v := range input {
 		switch vv := v.(type) {
 		case map[interface{}]interface{}:
