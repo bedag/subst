@@ -8,7 +8,7 @@ import (
 	"github.com/bedag/subst/internal/utils"
 	"github.com/bedag/subst/pkg/config"
 	"github.com/bedag/subst/pkg/subst"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	flag "github.com/spf13/pflag"
 )
@@ -100,7 +100,7 @@ func render(cmd *cobra.Command, args []string) error {
 		}
 	}
 	elapsed := time.Since(start) // Calculate elapsed time
-	logrus.Debug("Build time: ", elapsed)
+	log.Debug().Msgf("Build time: %s", elapsed)
 
 	return nil
 }

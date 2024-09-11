@@ -9,7 +9,7 @@ import (
 	"github.com/bedag/subst/internal/kustomize"
 	"github.com/bedag/subst/internal/utils"
 	"github.com/bedag/subst/pkg/config"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 )
@@ -70,7 +70,7 @@ func (b *Build) BuildSubstitutions() (err error) {
 func (b *Build) Build() (err error) {
 
 	if b.Substitutions == nil {
-		logrus.Debug("no resources to build")
+		log.Debug().Msg("no resources to build")
 		return nil
 	}
 
@@ -143,9 +143,9 @@ func (b *Build) loadSubstitutions() (err error) {
 	b.Substitutions.Subst = eval
 
 	if len(b.Substitutions.Subst) > 0 {
-		logrus.Debug("loaded substitutions: ", b.Substitutions.Subst)
+		log.Debug().Msgf("loaded substitutions: %+v", b.Substitutions.Subst)
 	} else {
-		logrus.Debug("no substitutions found")
+		log.Debug().Msg("no substitutions found")
 	}
 
 	return nil
@@ -178,13 +178,13 @@ func (b *Build) decryptors() (decryptors []decrypt.Decryptor, cleanups []func(),
 		if err == nil {
 			b.kubeClient, err = kubernetes.NewForConfig(cfg)
 			if err != nil {
-				logrus.Debug("could not load kubernetes client: %s", err)
+				log.Debug().Msgf("could not load kubernetes client: %s", err)
 			} else {
 				ctx := context.Background()
 				for _, decr := range decryptors {
 					err = decr.KeysFromSecret(b.cfg.SecretName, b.cfg.SecretNamespace, b.kubeClient, ctx)
 					if err != nil {
-						logrus.Debug("failed to load secrets from Kubernetes: %s", err)
+						log.Debug().Msgf("failed to load secrets from Kubernetes: %s", err)
 					}
 				}
 

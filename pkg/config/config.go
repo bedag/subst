@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	flag "github.com/spf13/pflag"
 
 	"github.com/spf13/cobra"
@@ -74,7 +74,7 @@ func LoadConfiguration(cfgFile string, cmd *cobra.Command, directory string) (*C
 		return nil, fmt.Errorf("secret-namespace must be set when --secret-name is set")
 	}
 
-	logrus.Debugf("Configuration: %+v\n", cfg)
+	log.Debug().Msgf("Configuration: %+v\n", cfg)
 	return cfg, nil
 
 }

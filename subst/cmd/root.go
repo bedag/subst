@@ -2,11 +2,10 @@ package cmd
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 	flag "github.com/spf13/pflag"
 
 	"github.com/MakeNowJust/heredoc"
@@ -30,14 +29,14 @@ func NewRootCmd() *cobra.Command {
 	//Here is where we define the PreRun func, using the verbose flag value
 	//We use the standard output for logs.
 	cmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
-		if err := setUpLogs(os.Stdout, v); err != nil {
+		if err := setUpLogs(v); err != nil {
 			return err
 		}
 		return nil
 	}
 
 	//Default value is the warn level
-	cmd.PersistentFlags().StringVarP(&v, "verbosity", "v", logrus.WarnLevel.String(), "Log level (debug, info, warn, error, fatal, panic")
+	cmd.PersistentFlags().StringVarP(&v, "verbosity", "v", zerolog.WarnLevel.String(), "Log level (debug, info, warn, error, fatal, panic")
 
 	cmd.AddCommand(newDiscoverCmd())
 	cmd.AddCommand(newVersionCmd())
@@ -60,13 +59,12 @@ func Execute() {
 }
 
 // setUpLogs set the log output ans the log level
-func setUpLogs(out io.Writer, level string) error {
-	logrus.SetOutput(out)
-	lvl, err := logrus.ParseLevel(level)
+func setUpLogs(level string) error {
+	lvl, err := zerolog.ParseLevel(level)
 	if err != nil {
 		return err
 	}
-	logrus.SetLevel(lvl)
+	zerolog.SetGlobalLevel(lvl)
 	return nil
 }
 
