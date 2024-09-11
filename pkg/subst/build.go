@@ -138,7 +138,7 @@ func (b *Build) loadSubstitutions() (err error) {
 	// Final attempt to evaluate
 	eval, err := b.Substitutions.Eval(b.Substitutions.Subst, nil, false)
 	if err != nil {
-		return fmt.Errorf("spruce evaluation failed")
+		return fmt.Errorf("spruce evaluation failed: %s", err)
 	}
 	b.Substitutions.Subst = eval
 
