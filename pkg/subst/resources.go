@@ -20,7 +20,7 @@ var (
 func (s *Substitutions) addResource(in map[interface{}]interface{}) (err error) {
 	// Create the resource
 	fmt.Printf("resource: %v\n", in)
-	res := defaultResourceFactor.FromMap(utils.ToMap(in))
+	res, err := defaultResourceFactor.FromMap(utils.ToMap(in))
 	if err != nil {
 		log.Fatalf("Failed to create resource: %v", err)
 	}
