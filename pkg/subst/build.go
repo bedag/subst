@@ -6,7 +6,6 @@ import (
 
 	decrypt "github.com/bedag/subst/internal/decryptors"
 	ejson "github.com/bedag/subst/internal/decryptors/ejson"
-	sops "github.com/bedag/subst/internal/decryptors/sops"
 	"github.com/bedag/subst/internal/kustomize"
 	"github.com/bedag/subst/internal/utils"
 	"github.com/bedag/subst/pkg/config"
@@ -164,17 +163,6 @@ func (b *Build) decryptors() (decryptors []decrypt.Decryptor, cleanups []func(),
 		return nil, nil, err
 	}
 	decryptors = append(decryptors, ed)
-
-	if b.cfg.SopsTempKeyring {
-		sd, sopsCleanup, err := sops.NewSOPSTempDecryptor(c)
-		if err != nil {
-			return nil, nil, err
-		}
-		cleanups = append(cleanups, sopsCleanup)
-		decryptors = append(decryptors, sd)
-	} else {
-		decryptors = append(decryptors, sops.NewSOPSDecryptor(c, b.cfg.SopSKeyring))
-	}
 
 	if b.cfg.SecretSkip {
 		return
