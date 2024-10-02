@@ -8,7 +8,7 @@ import (
 	"github.com/bedag/subst/internal/utils"
 	"github.com/bedag/subst/pkg/config"
 	"github.com/bedag/subst/pkg/subst"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	flag "github.com/spf13/pflag"
 )
@@ -92,15 +92,21 @@ func render(cmd *cobra.Command, args []string) error {
 		if m.Manifests != nil {
 			for _, f := range m.Manifests {
 				if configuration.Output == "json" {
-					utils.PrintJSON(f)
+					err = utils.PrintJSON(f)
+					if err != nil {
+						log.Error().Msgf("failed to print JSON: %s", err)
+					}
 				} else {
-					utils.PrintYAML(f)
+					err = utils.PrintYAML(f)
+					if err != nil {
+						log.Error().Msgf("failed to print JSON: %s", err)
+					}
 				}
 			}
 		}
 	}
 	elapsed := time.Since(start) // Calculate elapsed time
-	logrus.Debug("Build time: ", elapsed)
+	log.Debug().Msgf("Build time: %s", elapsed)
 
 	return nil
 }

@@ -45,7 +45,10 @@ func NewEJSONDecryptor(config decryptors.DecryptorConfig, keyDirectory string, k
 
 	if len(keys) > 0 {
 		for _, key := range keys {
-			init.AddKey(key)
+			err := init.AddKey(key)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 

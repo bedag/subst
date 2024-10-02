@@ -12,7 +12,7 @@ import (
 	"github.com/bedag/subst/internal/utils"
 	"github.com/bedag/subst/internal/wrapper"
 	"github.com/geofffranks/spruce"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"sigs.k8s.io/kustomize/api/resmap"
 )
 
@@ -53,7 +53,7 @@ func NewSubstitutions(cfg SubstitutionsConfig, decrypts []decrypt.Decryptor, res
 		if err != nil {
 			return nil, err
 		}
-		logrus.Debug("using regex: ", init.Config.SubstFileRegex)
+		log.Debug().Msgf("using regex: %s", init.Config.SubstFileRegex)
 
 	}
 
@@ -64,7 +64,7 @@ func NewSubstitutions(cfg SubstitutionsConfig, decrypts []decrypt.Decryptor, res
 	if err != nil {
 		return nil, err
 	}
-	init.Add(utils.ToInterface(envs), true)
+	err = init.Add(utils.ToInterface(envs), true)
 	if err != nil {
 		return nil, err
 	}
@@ -139,7 +139,7 @@ func (s *Substitutions) Walk(path string, f fs.FileInfo) error {
 
 	if matchingRegex.MatchString(f.Name()) {
 		var c map[interface{}]interface{}
-		logrus.Debug("processing: ", full, "")
+		log.Debug().Msgf("processing: %s", full)
 		file, err := utils.NewFile(full)
 		if err != nil {
 			return err
@@ -159,7 +159,7 @@ func (s *Substitutions) Walk(path string, f fs.FileInfo) error {
 				break
 			}
 			if isEncrypted {
-				logrus.Debugf("decrypted: %s", full)
+				log.Debug().Msgf("decrypted: %s", full)
 				file.Byte()
 				dm, err := d.Decrypt(file.Byte())
 				if err != nil {
@@ -178,7 +178,7 @@ func (s *Substitutions) Walk(path string, f fs.FileInfo) error {
 		}
 
 		if c[resourcesField] != nil {
-			logrus.Debugf("detected resources in %s", full)
+			log.Debug().Msgf("detected resources in %s", full)
 			err = s.addResources(c[resourcesField].([]interface{}))
 			if err != nil {
 				return fmt.Errorf("failed to add resources from %s: %s", full, err)
@@ -191,7 +191,7 @@ func (s *Substitutions) Walk(path string, f fs.FileInfo) error {
 			return fmt.Errorf("failed to merge %s: %s", full, err)
 		}
 
-		logrus.Debug("loaded: ", full, "")
+		log.Debug().Msgf("loaded: %s", full)
 	}
 	return nil
 }

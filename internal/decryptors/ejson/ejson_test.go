@@ -99,7 +99,10 @@ func TestMultipleKeyAddition(t *testing.T) {
 			}
 			keyContent := string(content)
 			keysFromFile = append(keysFromFile, keyContent)
-			decryptor.AddKey(keyContent)
+			err = decryptor.AddKey(keyContent)
+			if err != nil {
+				t.Fatalf("Failed to add key to decryptor: %v", err)
+			}
 		}
 	}
 
