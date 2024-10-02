@@ -92,9 +92,15 @@ func render(cmd *cobra.Command, args []string) error {
 		if m.Manifests != nil {
 			for _, f := range m.Manifests {
 				if configuration.Output == "json" {
-					utils.PrintJSON(f)
+					err = utils.PrintJSON(f)
+					if err != nil {
+						log.Error().Msgf("failed to print JSON: %s", err)
+					}
 				} else {
-					utils.PrintYAML(f)
+					err = utils.PrintYAML(f)
+					if err != nil {
+						log.Error().Msgf("failed to print JSON: %s", err)
+					}
 				}
 			}
 		}

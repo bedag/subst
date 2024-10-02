@@ -64,7 +64,7 @@ func NewSubstitutions(cfg SubstitutionsConfig, decrypts []decrypt.Decryptor, res
 	if err != nil {
 		return nil, err
 	}
-	init.Add(utils.ToInterface(envs), true)
+	err = init.Add(utils.ToInterface(envs), true)
 	if err != nil {
 		return nil, err
 	}

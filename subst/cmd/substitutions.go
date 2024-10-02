@@ -7,6 +7,7 @@ import (
 	"github.com/bedag/subst/internal/utils"
 	"github.com/bedag/subst/pkg/config"
 	"github.com/bedag/subst/pkg/subst"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 )
 
@@ -49,9 +50,15 @@ func substitutions(cmd *cobra.Command, args []string) error {
 	if m != nil {
 		if len(m.Substitutions.Subst) > 0 {
 			if configuration.Output == "json" {
-				utils.PrintJSON(m.Substitutions.Subst)
+				err = utils.PrintJSON(m.Substitutions.Subst)
+				if err != nil {
+					log.Error().Msgf("failed to print JSON: %s", err)
+				}
 			} else {
-				utils.PrintYAML(m.Substitutions.Subst)
+				err = utils.PrintYAML(m.Substitutions.Subst)
+				if err != nil {
+					log.Error().Msgf("failed to print JSON: %s", err)
+				}
 			}
 		}
 	}

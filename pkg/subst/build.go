@@ -98,11 +98,9 @@ func (b *Build) Build() (err error) {
 
 			var c map[interface{}]interface{}
 
-			log.Debug().Msg("Before marshalling")
 			mBytes, _ := manifest.MarshalJSON()
 			// should not check every file if its encrypted
 			// already decrypted in substiqutions.go?
-			log.Debug().Msg("Before decryption")
 			for _, d := range decryptors {
 				isEncrypted, err := d.IsEncrypted(mBytes)
 				if err != nil {
@@ -119,13 +117,10 @@ func (b *Build) Build() (err error) {
 					break
 				}
 			}
-			log.Debug().Msg("After decryption")
 
 			if c == nil {
-				log.Debug().Msg("AsYAML")
 				m, _ := manifest.AsYAML()
 
-				log.Debug().Msg("ParseYAML")
 				c, err = utils.ParseYAML(m)
 				if err != nil {
 					log.Error().Msgf("UnmarshalJSON: %s", err)
@@ -133,13 +128,11 @@ func (b *Build) Build() (err error) {
 				}
 			}
 
-			log.Debug().Msg("Before Substitutions.Eval")
 			f, err := b.Substitutions.Eval(c, nil, false)
 			if err != nil {
 				log.Error().Msgf("spruce evaluation failed %s/%s: %s", manifest.GetNamespace(), manifest.GetName(), err)
 				return
 			}
-			log.Debug().Msg("Append to Manifest")
 			manifestsMutex.Lock()
 			b.Manifests = append(b.Manifests, f)
 			manifestsMutex.Unlock()
