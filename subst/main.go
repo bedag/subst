@@ -1,6 +1,8 @@
 package main
 
 import (
+	"log/slog"
+
 	"github.com/KimMachineGun/automemlimit/memlimit"
 	"github.com/bedag/subst/subst/cmd"
 
@@ -16,6 +18,7 @@ func main() {
 				memlimit.FromSystem,
 			),
 		),
+		memlimit.WithLogger(slog.Default()),
 	)
 	cmd.Execute()
 }

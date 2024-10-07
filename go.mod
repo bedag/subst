@@ -6,6 +6,7 @@ toolchain go1.23.0
 
 require (
 	github.com/BurntSushi/toml v1.4.0
+	github.com/KimMachineGun/automemlimit v0.6.1
 	github.com/MakeNowJust/heredoc v1.0.0
 	github.com/Masterminds/sprig/v3 v3.3.0
 	github.com/Shopify/ejson v1.5.2
@@ -17,6 +18,7 @@ require (
 	github.com/spf13/viper v1.14.0
 	github.com/starkandwayne/goutils v0.0.0-20190115202530-896b8a6904be
 	github.com/stretchr/testify v1.9.0
+	go.uber.org/automaxprocs v1.6.0
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/apimachinery v0.31.0
@@ -28,7 +30,6 @@ require (
 
 require (
 	dario.cat/mergo v1.0.1 // indirect
-	github.com/KimMachineGun/automemlimit v0.6.1 // indirect
 	github.com/Knetic/govaluate v3.0.0+incompatible // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/semver/v3 v3.3.0 // indirect
@@ -100,7 +101,6 @@ require (
 	github.com/xlab/treeprint v1.2.0 // indirect
 	github.com/ziutek/utils v0.0.0-20190626152656-eb2a3b364d6c // indirect
 	go.starlark.net v0.0.0-20221205180719-3fd0dac74452 // indirect
-	go.uber.org/automaxprocs v1.6.0 // indirect
 	golang.org/x/crypto v0.27.0 // indirect
 	golang.org/x/net v0.27.0 // indirect
 	golang.org/x/oauth2 v0.21.0 // indirect
