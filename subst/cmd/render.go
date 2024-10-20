@@ -50,10 +50,6 @@ func addRenderFlags(flags *flag.FlagSet) {
 	flags.StringSlice("ejson-key", []string{}, heredoc.Doc(`
 			Specify EJSON Private key used for decryption.
 			May be specified multiple times or separate values with commas`))
-	flags.String("sops-keyring", "", heredoc.Doc(`
-	        Path to local GPG keyring`))
-	flags.Bool("sops-temp-keyring", true, heredoc.Doc(`
-			Creates for each execution a dedicated keyring which is automatically deleted after execution. If false, uses the default keyring`))
 	flags.Bool("skip-decrypt", false, heredoc.Doc(`
 			Skip decryption`))
 	flags.String("env-regex", "^ARGOCD_ENV_.*$", heredoc.Doc(`
@@ -64,6 +60,8 @@ func addRenderFlags(flags *flag.FlagSet) {
 }
 
 func render(cmd *cobra.Command, args []string) error {
+	start := time.Now() // Start time measurement
+
 	dir, err := rootDirectory(args)
 	if err != nil {
 		return err
@@ -83,7 +81,6 @@ func render(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	start := time.Now() // Start time measurement
 	if m != nil {
 		err = m.Build()
 		if err != nil {
@@ -106,7 +103,7 @@ func render(cmd *cobra.Command, args []string) error {
 		}
 	}
 	elapsed := time.Since(start) // Calculate elapsed time
-	log.Debug().Msgf("Build time: %s", elapsed)
+	log.Debug().Msgf("Build time for rendering: %s", elapsed)
 
 	return nil
 }
