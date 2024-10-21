@@ -3,7 +3,6 @@ package subst
 import (
 	"context"
 	"fmt"
-	"sync"
 
 	decrypt "github.com/bedag/subst/internal/decryptors"
 	ejson "github.com/bedag/subst/internal/decryptors/ejson"
@@ -89,57 +88,44 @@ func (b *Build) Build() (err error) {
 	// Run Build
 	log.Debug().Msg("substitute manifests")
 
-	var wg sync.WaitGroup
-	manifestsMutex := sync.Mutex{}
 	for _, manifest := range b.Substitutions.Resources.Resources() {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		var c map[interface{}]interface{}
 
-			var c map[interface{}]interface{}
-
-			mBytes, _ := manifest.MarshalJSON()
-			// should not check every file if its encrypted
-			// already decrypted in substiqutions.go?
-			for _, d := range decryptors {
-				isEncrypted, err := d.IsEncrypted(mBytes)
-				if err != nil {
-					log.Error().Msgf("Error checking encryption for %s: %s", mBytes, err)
-					continue
-				}
-				if isEncrypted {
-					dm, err := d.Decrypt(mBytes)
-					if err != nil {
-						log.Error().Msgf("failed to decrypt %s: %s", mBytes, err)
-						return
-					}
-					c = utils.ToInterface(dm)
-					break
-				}
-			}
-
-			if c == nil {
-				m, _ := manifest.AsYAML()
-
-				c, err = utils.ParseYAML(m)
-				if err != nil {
-					log.Error().Msgf("UnmarshalJSON: %s", err)
-					return
-				}
-			}
-
-			f, err := b.Substitutions.Eval(c, nil, false)
+		mBytes, _ := manifest.MarshalJSON()
+		for _, d := range decryptors {
+			isEncrypted, err := d.IsEncrypted(mBytes)
 			if err != nil {
-				log.Error().Msgf("spruce evaluation failed %s/%s: %s", manifest.GetNamespace(), manifest.GetName(), err)
-				return
+				log.Error().Msgf("Error checking encryption for %s: %s", mBytes, err)
+				return err
 			}
-			manifestsMutex.Lock()
-			b.Manifests = append(b.Manifests, f)
-			manifestsMutex.Unlock()
-		}()
-	}
+			if isEncrypted {
+				dm, err := d.Decrypt(mBytes)
+				if err != nil {
+					log.Error().Msgf("failed to decrypt %s: %s", mBytes, err)
+					return err
+				}
+				c = utils.ToInterface(dm)
+				break
+			}
+		}
 
-	wg.Wait()
+		if c == nil {
+			m, _ := manifest.AsYAML()
+
+			c, err = utils.ParseYAML(m)
+			if err != nil {
+				log.Error().Msgf("UnmarshalJSON: %s", err)
+				return err
+			}
+		}
+
+		f, err := b.Substitutions.Eval(c, nil, false)
+		if err != nil {
+			log.Error().Msgf("spruce evaluation failed %s/%s: %s", manifest.GetNamespace(), manifest.GetName(), err)
+			return err
+		}
+		b.Manifests = append(b.Manifests, f)
+	}
 
 	return nil
 }
