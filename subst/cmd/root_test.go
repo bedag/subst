@@ -14,6 +14,9 @@ func BenchmarkExecute(b *testing.B) {
 	})
 	for i := 0; i < b.N; i++ {
 		debug.SetGCPercent(800)
-		cmd.Execute()
+		err := cmd.Execute()
+		if err != nil {
+			b.Errorf("Error: %v", err)
+		}
 	}
 }

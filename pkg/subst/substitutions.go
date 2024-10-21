@@ -8,10 +8,10 @@ import (
 	"regexp"
 	"text/template"
 
+	"github.com/adberger/spruce"
 	decrypt "github.com/bedag/subst/internal/decryptors"
 	"github.com/bedag/subst/internal/utils"
 	"github.com/bedag/subst/internal/wrapper"
-	"github.com/geofffranks/spruce"
 	"github.com/rs/zerolog/log"
 	"sigs.k8s.io/kustomize/api/resmap"
 )

@@ -103,7 +103,7 @@ func setUpLogs(level string) error {
 
 // setUpMemLimitRatio set the memlimit ratio
 func setUpMemLimitRatio(ratio float64) error {
-	memlimit.SetGoMemLimitWithOpts(
+	_, err := memlimit.SetGoMemLimitWithOpts(
 		memlimit.WithRatio(ratio),
 		memlimit.WithProvider(
 			memlimit.ApplyFallback(
@@ -113,6 +113,9 @@ func setUpMemLimitRatio(ratio float64) error {
 		),
 		memlimit.WithLogger(slog.Default()),
 	)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -121,7 +124,10 @@ func setUpMaxProcs(procs int) error {
 	if procs > 0 {
 		os.Setenv("GOMAXPROCS", strconv.Itoa(procs))
 	}
-	maxprocs.Set(maxprocs.Logger(log.Printf))
+	_, err := maxprocs.Set(maxprocs.Logger(log.Printf))
+	if err != nil {
+		return err
+	}
 	return nil
 }
 

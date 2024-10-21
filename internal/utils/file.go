@@ -53,7 +53,8 @@ func (f *File) JSON() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return json.Marshal(d)
+	//lint:ignore SA1026 This seems to be a false positive
+	return json.Marshal(d) //nolint:all
 }
 
 func (f *File) SPRUCE() (map[interface{}]interface{}, error) {
