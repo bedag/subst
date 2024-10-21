@@ -2,16 +2,14 @@ package cmd
 
 import (
 	"fmt"
-	"log"
-	"log/slog"
 	"os"
 	"path/filepath"
 	"runtime/pprof"
 	"strconv"
 	"sync"
 
-	"github.com/KimMachineGun/automemlimit/memlimit"
 	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	flag "github.com/spf13/pflag"
 
 	"github.com/MakeNowJust/heredoc"
@@ -23,7 +21,6 @@ import (
 var (
 	cfgFile        string
 	v              string
-	m              float64
 	p              int
 	cpuProfile     bool
 	memProfile     bool
@@ -46,9 +43,6 @@ func NewRootCmd() *cobra.Command {
 		if err := setUpLogs(v); err != nil {
 			return err
 		}
-		if err := setUpMemLimitRatio(m); err != nil {
-			return err
-		}
 		if err := setUpMaxProcs(p); err != nil {
 			return err
 		}
@@ -59,8 +53,6 @@ func NewRootCmd() *cobra.Command {
 	//Default value is the warn level
 	cmd.PersistentFlags().StringVarP(&v, "verbosity", "v", zerolog.WarnLevel.String(), "Log level (debug, info, warn, error, fatal, panic")
 
-	//Default value is 0.1 (10%)
-	cmd.PersistentFlags().Float64VarP(&m, "memlimitratio", "m", 0.1, "Overwrite GOMEMLIMIT which the command can allocate (default: 0.1 which means 10%)")
 	//Default value is inferred from cgroups or system
 	cmd.PersistentFlags().IntVarP(&p, "maxprocs", "p", 0, "Overwrite GOMAXPROCS for the command to use (default: 0 which means respect cgroup or system)")
 
@@ -101,30 +93,12 @@ func setUpLogs(level string) error {
 	return nil
 }
 
-// setUpMemLimitRatio set the memlimit ratio
-func setUpMemLimitRatio(ratio float64) error {
-	_, err := memlimit.SetGoMemLimitWithOpts(
-		memlimit.WithRatio(ratio),
-		memlimit.WithProvider(
-			memlimit.ApplyFallback(
-				memlimit.FromCgroup,
-				memlimit.FromSystem,
-			),
-		),
-		memlimit.WithLogger(slog.Default()),
-	)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 // setUpMaxProcs set the max procs
 func setUpMaxProcs(procs int) error {
 	if procs > 0 {
 		os.Setenv("GOMAXPROCS", strconv.Itoa(procs))
 	}
-	_, err := maxprocs.Set(maxprocs.Logger(log.Printf))
+	_, err := maxprocs.Set(maxprocs.Logger(log.Debug().Msgf))
 	if err != nil {
 		return err
 	}
