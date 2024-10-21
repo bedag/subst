@@ -2,15 +2,13 @@
 
 ![subst](./img/subst.png "subst")
 
-__Currently under development and testing. I don't take any responsability for unexpected behavior. You know what you are doing :3__
-
 A simple extension over kustomize, which allows further variable substitution and introduces simplified yet strong secrets management (for multi tenancy use-cases). Extends to functionality of kustomize for ArgoCD users.
 
 # Functionality
 
-The idea for subst is to act as complementary for kustomize. You can reference additional variables for your environment or from different kustomize paths, which are then accesible across your entire kustomize build. The kustomize you are referencing to is resolved (it's paths). In each of these paths you can create new substition files, which contain variables or secrets, which then can be used by your kustomization. The final output is your built kustomization with the substitutions made.
+The idea for subst is to act as complementary for kustomize. You can reference additional variables for your environment or from different kustomize paths, which are then accesible across your entire kustomize build. The kustomize you are referencing to is resolved (it's paths). In each of these paths you can create new substitution files, which contain variables or secrets, which then can be used by your kustomization. The final output is your built kustomization with the substitutions made.
 
-By default the all files are considered using this regex `(.*subst\.yaml|.*(ejson|vars))`. You can change the regex using:
+By default the all files are considered using this regex `(subst\.yaml|.*(ejson))`. You can change the regex using:
 
 ```
 subst render . --file-regex "custom-values\\.yaml"
@@ -133,21 +131,21 @@ Note that directories do not resolve by recursion (eg. `/test/build/` only colle
 
 ### Environment
 
-for environment variables which come from an argo application (`^ARGOCD_ENV_`) we remove the `ARGOCD_ENV_` and they are then available in your substitutions without the `ARGOCD_ENV_` prefix. This way they have the same name you have given them on the application ([Read More](https://argo-cd.readthedocs.io/en/stable/operator-manual/config-management-plugins/#using-environment-variables-in-your-plugin)). All the substions are available as flat key, so where needed you can use environment substitution.
+For environment variables which come from an argo application (`^ARGOCD_ENV_`) we remove the `ARGOCD_ENV_` and they are then available in your substitutions without the `ARGOCD_ENV_` prefix. This way they have the same name you have given them on the application ([Read More](https://argo-cd.readthedocs.io/en/stable/operator-manual/config-management-plugins/#using-environment-variables-in-your-plugin)). All the substitutions are available as flat key, so where needed you can use environment substitution.
 
 ## Spruce
 
-[Spruce](https://github.com/geofffranks/spruce) is used to access the substition variables, it has more flexability than [envsubst](#environment-substitution). You can grab values from the available substitutions using [Spruce Operators](https://github.com/geofffranks/spruce/blob/main/doc/operators.md). Spurce is greate, because it's operators are valid YAML which allows to build the kustomize without any further hacking.
+[Spruce](https://github.com/geofffranks/spruce) is used to access the substitution variables, it has more flexability than [envsubst](#environment-substitution). You can grab values from the available substitutions using [Spruce Operators](https://github.com/geofffranks/spruce/blob/main/doc/operators.md). Spurce is great, because it's operators are valid YAML which allows to build the kustomize without any further hacking.
 
 ## Secrets
 
-You can both encrypt files which are part of the kustomize build or which are used for substitution. Currently for secret decryption we support both [ejson](https://github.com/Shopify/ejson) and [sops](https://github.com/mozilla/sops). You can use any combination of these decryption providers together. The principal for all decryption provider is, that they should load the private keys while a substiution build is made instead of having a permanent keystore. This allows for secret tenancy (eg. one secret per argo application). The private keys are loaded from kubernetes secrets, therefor the plugin also creates it's own kubeconfig. 
+You can both encrypt files which are part of the kustomize build or which are used for substitution. Currently for secret decryption we support [ejson](https://github.com/Shopify/ejson). The principal for the decryption provider is, that it should load the private keys while a substitution build is made instead of having a permanent keystore. This allows for secret tenancy (eg. one secret per argo application). The private keys are loaded from kubernetes secrets, therefor the plugin also creates it's own kubeconfig. 
 
-The secrets are loaded based on the environment variables `$ARGOCD_APP_NAME` and `$ARGOCD_APP_NAMESPACE` are used. If an application is in a project, the value of `$ARGOCD_APP_NAME` looks like this: `<project-name>_<application-name>`. For example, if the application `my-app` is in the project `my-project`, the value of `$ARGOCD_APP_NAME` is `my-project_my-app`. All special characters within are converted to `-` (dash). For example, if the application `my-app` is in the project `my-project`, the value of `$ARGOCD_APP_NAME` is `my-project-my-app`. So the secret reference is then `my-project-my-app` in the secret namespace (Assuming `--convert-secret-name=false`). 
+The secrets are loaded based on how the environment variables `$ARGOCD_APP_NAME` and `$ARGOCD_APP_NAMESPACE` are used. If an application is in a project, the value of `$ARGOCD_APP_NAME` looks like this: `<project-name>_<application-name>`. For example, if the application `my-app` is in the project `my-project`, the value of `$ARGOCD_APP_NAME` is `my-project_my-app`. All special characters within are converted to `-` (dash). For example, if the application `my-app` is in the project `my-project`, the value of `$ARGOCD_APP_NAME` is `my-project-my-app`. So the secret reference is then `my-project-my-app` in the secret namespace (Assuming `--convert-secret-name=false`). 
 
-By default the `--convert-secret-name` is enabled. This removes the project prefix from the secret. If you create an application `test` in the namespace `test-reserved` the plugin is looking for private keys in the  secret `test` in the namespace `test-reserved`. The is not considered in this approach which helps endusers to keep it simple.
+By default the `--convert-secret-name` is enabled. This removes the project prefix from the secret. If you create an application `test` in the namespace `test-reserved` the plugin is looking for private keys in the  secret `test` in the namespace `test-reserved`.
 
-The values for the secret name and namespace can also be set constant, however this way you lose the multi-tenancy aspect of the secrets management:
+The values for the secret name and namespace can also be set explicitly, however this way you lose the multi-tenancy aspect of the secrets management:
 
 ```
 subst render --secret-name static-name --secret-namespace static-namespace .
@@ -169,28 +167,15 @@ See below how to work with the different decryption providers.
 
 ### EJSON
 
-[EJSON](https://github.com/Shopify/ejson) allows simple secrets management. I like it, because you can rencrypt secrets without having the private key, which is sometimes useful. 
+[EJSON](https://github.com/Shopify/ejson) allows simple secrets management.
 
-You can encrypt entire files using EJSON. The file must be in json format (which is fun for kustomize). The entire file will be encrypted, which may not bes useful in all cases.
-
-
-### SOPS
-
-[SOPS](https://github.com/mozilla/sops) is commonly known and also used by [FluxCD](https://fluxcd.io/flux/guides/mozilla-sops/). 
-
-
+You can encrypt entire files using EJSON. The file must be in json format. The entire file will be encrypted, which may not bes useful in all cases.
 
 ### Kubernetes
 
 For all decryptors you can create a kubernetes secret, which contains the private information for secret decryption.
 
-
-
-
-
-
 # Running it
-
 
 ## Local installation
 
@@ -213,10 +198,4 @@ https://github.com/bedag/subst/releases
 
 ## ArgoCD Plugin
 
-
-
 ## CI/CD
-
-TBD
-
-

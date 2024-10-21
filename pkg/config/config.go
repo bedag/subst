@@ -28,8 +28,6 @@ type Configuration struct {
 	KubeAPI           string        `mapstructure:"kube-api"`
 	Output            string        `mapstructure:"output"`
 	ConvertSecretname bool          `mapstructure:"convert-secret-name"`
-	SopSKeyring       string        `mapstructure:"sops-keyring"`
-	SopsTempKeyring   bool          `mapstructure:"sops-temp-keyring"`
 }
 
 func LoadConfiguration(cfgFile string, cmd *cobra.Command, directory string) (*Configuration, error) {

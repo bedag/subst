@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/MakeNowJust/heredoc"
 	"github.com/bedag/subst/internal/utils"
@@ -28,6 +29,8 @@ func newSubstitutionsCmd() *cobra.Command {
 }
 
 func substitutions(cmd *cobra.Command, args []string) error {
+	start := time.Now() // Start time measurement
+
 	dir, err := rootDirectory(args)
 	if err != nil {
 		return err
@@ -62,6 +65,8 @@ func substitutions(cmd *cobra.Command, args []string) error {
 			}
 		}
 	}
+	elapsed := time.Since(start) // Calculate elapsed time
+	log.Debug().Msgf("Build time for substitutions: %s", elapsed)
 
 	return nil
 }
