@@ -3,7 +3,7 @@ package wrapper
 import (
 	"fmt"
 
-	"github.com/adberger/spruce"
+	"github.com/bedag/spruce"
 )
 
 // Run Spruce Eval and return evaluator

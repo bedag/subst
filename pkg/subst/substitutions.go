@@ -8,7 +8,7 @@ import (
 	"regexp"
 	"text/template"
 
-	"github.com/adberger/spruce"
+	"github.com/bedag/spruce"
 	decrypt "github.com/bedag/subst/internal/decryptors"
 	"github.com/bedag/subst/internal/utils"
 	"github.com/bedag/subst/internal/wrapper"

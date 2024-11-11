@@ -9,7 +9,7 @@ require (
 	github.com/MakeNowJust/heredoc v1.0.0
 	github.com/Masterminds/sprig/v3 v3.3.0
 	github.com/Shopify/ejson v1.5.2
-	github.com/adberger/spruce v0.0.7
+	github.com/bedag/spruce v1.32.1
 	github.com/geofffranks/simpleyaml v0.0.0-20161109204137-c9320f076de5
 	github.com/rs/zerolog v1.33.0
 	github.com/spf13/cobra v1.8.0
