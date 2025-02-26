@@ -2,6 +2,7 @@ package kustomize
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 
@@ -32,4 +33,9 @@ func kustomizeFile(path string) (types.Kustomization, error) {
 		}
 	}
 	return kz, fmt.Errorf("no kustomization file found in %v", path)
+}
+
+func isRemoteFile(path string) bool {
+	u, err := url.Parse(path)
+	return err == nil && (u.Scheme == "http" || u.Scheme == "https")
 }

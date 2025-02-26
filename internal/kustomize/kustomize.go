@@ -63,18 +63,20 @@ func (k *Kustomize) paths(path string) error {
 	}
 
 	for _, resource := range kz.Resources {
-		p := filepath.Join(path, resource)
-		file, err := os.Stat(p)
-		if err != nil {
-			return err
-		}
-		if file.IsDir() {
-			p = convertPath(p)
-			if err := k.paths(p); err != nil {
+		if !isRemoteFile(resource) {
+			p := filepath.Join(path, resource)
+			file, err := os.Stat(p)
+			if err != nil {
 				return err
 			}
-			if err := k.addPath(p); err != nil {
-				return err
+			if file.IsDir() {
+				p = convertPath(p)
+				if err := k.paths(p); err != nil {
+					return err
+				}
+				if err := k.addPath(p); err != nil {
+					return err
+				}
 			}
 		}
 	}
