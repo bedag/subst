@@ -112,3 +112,55 @@ func UnmarshalJSONorYAML(data []byte) (map[string]interface{}, error) {
 	}
 	return result, nil
 }
+
+// MergeValues merges two maps, with the second map taking precedence
+func MergeValues(base, override map[interface{}]interface{}) map[interface{}]interface{} {
+	result := make(map[interface{}]interface{})
+
+	// Copy base values
+	for k, v := range base {
+		result[k] = deepCopy(v)
+	}
+
+	// Merge override values
+	for k, v := range override {
+		if existing, exists := result[k]; exists {
+			// If both values are maps, merge them recursively
+			if existingMap, ok := existing.(map[interface{}]interface{}); ok {
+				if newMap, ok := v.(map[interface{}]interface{}); ok {
+					result[k] = MergeValues(existingMap, newMap)
+					continue
+				}
+			}
+		}
+		// Otherwise, override takes precedence
+		result[k] = deepCopy(v)
+	}
+
+	return result
+}
+
+// deepCopy creates a deep copy of a value
+func deepCopy(val interface{}) interface{} {
+	switch v := val.(type) {
+	case map[interface{}]interface{}:
+		result := make(map[interface{}]interface{})
+		for k, v := range v {
+			result[k] = deepCopy(v)
+		}
+		return result
+	case []interface{}:
+		result := make([]interface{}, len(v))
+		for i, item := range v {
+			result[i] = deepCopy(item)
+		}
+		return result
+	default:
+		return v
+	}
+}
+
+// ToYAML converts a map to YAML bytes
+func ToYAML(data map[interface{}]interface{}) ([]byte, error) {
+	return yaml.Marshal(data)
+}

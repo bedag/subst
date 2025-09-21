@@ -6,12 +6,9 @@ import (
 	"io/fs"
 	"path/filepath"
 	"regexp"
-	"text/template"
 
-	"github.com/bedag/spruce"
 	decrypt "github.com/bedag/subst/internal/decryptors"
 	"github.com/bedag/subst/internal/utils"
-	"github.com/bedag/subst/internal/wrapper"
 	"github.com/rs/zerolog/log"
 	"sigs.k8s.io/kustomize/api/resmap"
 )
@@ -24,7 +21,6 @@ type Substitutions struct {
 	Subst      map[interface{}]interface{} `yaml:"subst"`
 	Config     SubstitutionsConfig         `yaml:"config"`
 	decryptors []decrypt.Decryptor
-	funcmap    template.FuncMap
 	Resources  resmap.ResMap
 }
 
@@ -54,11 +50,7 @@ func NewSubstitutions(cfg SubstitutionsConfig, decrypts []decrypt.Decryptor, res
 			return nil, err
 		}
 		log.Debug().Msgf("using regex: %s", init.Config.SubstFileRegex)
-
 	}
-
-	// Load sprig functionMap
-	init.funcmap = utils.SprigFuncMap()
 
 	envs, err := GetVariables(cfg.EnvironmentRegex)
 	if err != nil {
@@ -90,44 +82,44 @@ func (s *Substitutions) Add(data map[interface{}]interface{}, optimistic bool) (
 		return fmt.Errorf("failed to build substitutions: %s", err)
 	}
 
-	merge, err := spruce.Merge(s.Get(), tree)
-	if err != nil {
-		return fmt.Errorf("could not merge manifest with substitutions: %s", err)
-	}
-
-	s.Subst = merge
+	// Simple deep merge function to replace spruce.Merge
+	merged := utils.MergeValues(s.Get(), tree)
+	s.Subst = merged
 	return nil
 }
 
-// Merge merges the Substitutions with the given data
+// Eval evaluates data using gomplate templating
 func (s *Substitutions) Eval(data map[interface{}]interface{}, substs map[interface{}]interface{}, optimistic bool) (eval map[interface{}]interface{}, err error) {
 	if substs == nil {
 		substs = s.Get()
 	}
 
+	// Create substitution context
 	sub := map[interface{}]interface{}{
 		s.Config.SubstKey: substs,
 	}
 
-	merge, err := spruce.Merge(data, sub)
+	// Merge data with substitutions
+	merged := utils.MergeValues(data, sub)
+
+	// Convert to YAML for processing
+	yamlData, err := utils.ToYAML(merged)
 	if err != nil {
-		return nil, fmt.Errorf("could not merge manifest with substitutions: %s", err)
+		return nil, fmt.Errorf("failed to convert to YAML: %w", err)
 	}
 
-	if optimistic {
-		eval, err = wrapper.SpruceOptimisticEval(merge, []string{s.Config.SubstKey})
-		if err != nil {
-			return nil, err
+	// Process with gomplate (using environment regex from config)
+	processed, err := utils.TemplateWithEngine([]byte(yamlData), merged, s.Config.EnvironmentRegex)
+	if err != nil {
+		if optimistic {
+			// In optimistic mode, return original data if templating fails
+			log.Debug().Msgf("Optimistic mode: templating failed, returning original data: %s", err)
+			return merged, nil
 		}
-	} else {
-		tree, err := wrapper.SpruceEval(merge, []string{s.Config.SubstKey})
-		if err != nil {
-			return nil, err
-		}
-		eval = tree.Tree
+		return nil, err
 	}
 
-	return eval, nil
+	return processed, nil
 }
 
 func (s *Substitutions) Walk(path string, f fs.FileInfo) error {
@@ -145,10 +137,13 @@ func (s *Substitutions) Walk(path string, f fs.FileInfo) error {
 			return err
 		}
 
-		c, err = file.SPRUCE()
+		// First try to parse as YAML/JSON directly
+		c, err = utils.ParseYAML(file.Byte())
 		if err != nil {
-			if c, err = utils.Template(file.Byte(), s.Subst); err != nil {
-				return fmt.Errorf("failed to template %s: %s", full, err)
+			// If parsing fails, try template processing
+			c, err = utils.Template(file.Byte(), s.Subst)
+			if err != nil {
+				return fmt.Errorf("failed to process %s: %s", full, err)
 			}
 		}
 
@@ -160,7 +155,6 @@ func (s *Substitutions) Walk(path string, f fs.FileInfo) error {
 			}
 			if isEncrypted {
 				log.Debug().Msgf("decrypted: %s", full)
-				file.Byte()
 				dm, err := d.Decrypt(file.Byte())
 				if err != nil {
 					return fmt.Errorf("failed to decrypt %s: %s", full, err)

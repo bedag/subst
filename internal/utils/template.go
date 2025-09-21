@@ -1,70 +1,38 @@
-// Original source:
-// https://raw.githubusercontent.com/helm/helm/952708b436bb2c8d5ef0e2e9ef1d8aabe64aeae9/pkg/engine/funcs.go
+// Template processing using gomplate
 package utils
 
 import (
-	"bytes"
 	"encoding/json"
 	"strings"
-	"text/template"
 
 	"github.com/BurntSushi/toml"
-	"github.com/Masterminds/sprig/v3"
+	"github.com/bedag/subst/internal/wrapper"
 	"sigs.k8s.io/yaml"
 )
 
+// Template processes templates using gomplate
 func Template(data []byte, values map[interface{}]interface{}) (map[interface{}]interface{}, error) {
-	tmpl, err := template.New("f").Funcs(SprigFuncMap()).Parse(string(data))
+	return TemplateWithEngine(data, values, "")
+}
+
+// TemplateWithEngine processes templates using gomplate with environment regex
+func TemplateWithEngine(data []byte, values map[interface{}]interface{}, envRegex string) (map[interface{}]interface{}, error) {
+	// Convert values to string map for gomplate
+	envData := ToMap(values)
+	
+	// Process with gomplate
+	processed, err := wrapper.ProcessGomplateTemplate(data, envData, envRegex)
 	if err != nil {
 		return nil, err
 	}
-
-	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, ToMap(values)); err != nil {
-		return nil, err
-	}
-
-	return ParseYAML(buf.Bytes())
+	
+	return ParseYAML(processed)
 }
 
-// funcMap returns a mapping of all of the functions that Engine has.
-//
-// Because some functions are late-bound (e.g. contain context-sensitive
-// data), the functions may not all perform identically outside of an Engine
-// as they will inside of an Engine.
-//
-// Known late-bound functions:
-//
-//   - "include"
-//   - "tpl"
-//
-// These are late-bound in Engine.Render().  The
-// version included in the FuncMap is a placeholder.
-func SprigFuncMap() template.FuncMap {
-	f := sprig.TxtFuncMap()
-
-	// Add some extra functionality
-	extra := template.FuncMap{
-		"toToml":        toTOML,
-		"toYaml":        toYAML,
-		"fromYaml":      fromYAML,
-		"fromYamlArray": fromYAMLArray,
-		"toJson":        toJSON,
-		"fromJson":      fromJSON,
-		"fromJsonArray": fromJSONArray,
-	}
-
-	for k, v := range extra {
-		f[k] = v
-	}
-
-	return f
-}
+// Utility functions for data conversion (keeping these as they're used elsewhere)
 
 // toYAML takes an interface, marshals it to yaml, and returns a string. It will
 // always return a string, even on marshal error (empty string).
-//
-// This is designed to be called from a template.
 func toYAML(v interface{}) string {
 	data, err := yaml.Marshal(v)
 	if err != nil {
@@ -75,11 +43,6 @@ func toYAML(v interface{}) string {
 }
 
 // fromYAML converts a YAML document into a map[string]interface{}.
-//
-// This is not a general-purpose YAML parser, and will not parse all valid
-// YAML documents. Additionally, because its intended use is within templates
-// it tolerates errors. It will insert the returned error message string into
-// m["Error"] in the returned map.
 func fromYAML(str string) map[string]interface{} {
 	m := map[string]interface{}{}
 
@@ -90,11 +53,6 @@ func fromYAML(str string) map[string]interface{} {
 }
 
 // fromYAMLArray converts a YAML array into a []interface{}.
-//
-// This is not a general-purpose YAML parser, and will not parse all valid
-// YAML documents. Additionally, because its intended use is within templates
-// it tolerates errors. It will insert the returned error message string as
-// the first and only item in the returned array.
 func fromYAMLArray(str string) []interface{} {
 	a := []interface{}{}
 
@@ -104,24 +62,18 @@ func fromYAMLArray(str string) []interface{} {
 	return a
 }
 
-// toTOML takes an interface, marshals it to toml, and returns a string. It will
-// always return a string, even on marshal error (empty string).
-//
-// This is designed to be called from a template.
+// toTOML takes an interface, marshals it to toml, and returns a string.
 func toTOML(v interface{}) string {
-	b := bytes.NewBuffer(nil)
-	e := toml.NewEncoder(b)
+	var buf strings.Builder
+	e := toml.NewEncoder(&buf)
 	err := e.Encode(v)
 	if err != nil {
 		return err.Error()
 	}
-	return b.String()
+	return buf.String()
 }
 
-// toJSON takes an interface, marshals it to json, and returns a string. It will
-// always return a string, even on marshal error (empty string).
-//
-// This is designed to be called from a template.
+// toJSON takes an interface, marshals it to json, and returns a string.
 func toJSON(v interface{}) string {
 	data, err := json.Marshal(v)
 	if err != nil {
@@ -132,11 +84,6 @@ func toJSON(v interface{}) string {
 }
 
 // fromJSON converts a JSON document into a map[string]interface{}.
-//
-// This is not a general-purpose JSON parser, and will not parse all valid
-// JSON documents. Additionally, because its intended use is within templates
-// it tolerates errors. It will insert the returned error message string into
-// m["Error"] in the returned map.
 func fromJSON(str string) map[string]interface{} {
 	m := make(map[string]interface{})
 
@@ -147,11 +94,6 @@ func fromJSON(str string) map[string]interface{} {
 }
 
 // fromJSONArray converts a JSON array into a []interface{}.
-//
-// This is not a general-purpose JSON parser, and will not parse all valid
-// JSON documents. Additionally, because its intended use is within templates
-// it tolerates errors. It will insert the returned error message string as
-// the first and only item in the returned array.
 func fromJSONArray(str string) []interface{} {
 	a := []interface{}{}
 

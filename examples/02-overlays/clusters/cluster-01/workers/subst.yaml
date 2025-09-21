@@ -14,4 +14,3 @@ resources:
         image: nginx:1.14.2
         ports:
         - containerPort: 80
-Context: {{- toYaml $ | nindent 4 }}
