@@ -2,20 +2,17 @@ package ejson
 
 import (
 	"bytes"
-	"context"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
 
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"github.com/Shopify/ejson"
 	"github.com/bedag/subst/internal/decryptors"
-	"k8s.io/client-go/kubernetes"
 )
 
 const (
@@ -92,21 +89,49 @@ func (d *EjsonDecryptor) AddKey(key string) error {
 	return nil
 }
 
-// Load Keys from Kubernetes Secret
+// Load Keys from Kubernetes Secret using kubectl
 // Only keys within the secret with the extension .key
 // will be loaded as ejson private keys
-func (d *EjsonDecryptor) KeysFromSecret(secretName string, namespace string, client *kubernetes.Clientset, ctx context.Context) (err error) {
-	keySecret, err := client.CoreV1().Secrets(namespace).Get(ctx, secretName, metav1.GetOptions{})
-	if k8serrors.IsNotFound(err) {
-		return &decryptors.MissingKubernetesSecret{Secret: secretName, Namespace: namespace}
-	} else if err != nil {
-		return err
+func (d *EjsonDecryptor) KeysFromSecret(secretName string, namespace string, kubeconfig string) error {
+	// Use kubectl to get the secret
+	cmd := exec.Command("kubectl", "get", "secret", secretName, "-n", namespace, "-o", "json")
+	if kubeconfig != "" {
+		cmd = exec.Command("kubectl", "--kubeconfig", kubeconfig, "get", "secret", secretName, "-n", namespace, "-o", "json")
 	}
-
-	// Exract all keys from secret
-	for name, value := range keySecret.Data {
+	
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	
+	err := cmd.Run()
+	if err != nil {
+		if strings.Contains(stderr.String(), "not found") {
+			return &decryptors.MissingKubernetesSecret{Secret: secretName, Namespace: namespace}
+		}
+		return fmt.Errorf("kubectl get secret failed: %w, stderr: %s", err, stderr.String())
+	}
+	
+	// Parse the secret JSON
+	var secret struct {
+		Data map[string]string `json:"data"`
+	}
+	
+	err = json.Unmarshal(stdout.Bytes(), &secret)
+	if err != nil {
+		return fmt.Errorf("failed to parse secret JSON: %w", err)
+	}
+	
+	// Extract all keys from secret
+	for name, value := range secret.Data {
 		if filepath.Ext(name) == DecryptionEjsonExt {
-			err := d.AddKey(string(value))
+			// Decode base64
+			decoded, err := hex.DecodeString(value)
+			if err != nil {
+				// Try base64 decode instead
+				decoded = []byte(value) // kubectl already base64 decodes for us in JSON output
+			}
+			
+			err = d.AddKey(string(decoded))
 			if err != nil {
 				return fmt.Errorf("failed to import data from %s decryption Secret '%s': %w", name, secretName, err)
 			}

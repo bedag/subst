@@ -40,7 +40,7 @@ func substitutions(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed loading configuration: %w", err)
 	}
-	m, err := subst.New(*configuration)
+	m, err := subst.NewSubst(*configuration)
 	if err != nil {
 		return err
 	}
@@ -51,16 +51,22 @@ func substitutions(cmd *cobra.Command, args []string) error {
 	}
 
 	if m != nil {
-		if len(m.Substitutions.Subst) > 0 {
+		if len(m.Substitutions) > 0 {
+			// Convert to interface{} map for compatibility with utils functions
+			substMap := make(map[interface{}]interface{})
+			for k, v := range m.Substitutions {
+				substMap[k] = v
+			}
+			
 			if configuration.Output == "json" {
-				err = utils.PrintJSON(m.Substitutions.Subst)
+				err = utils.PrintJSON(substMap)
 				if err != nil {
 					log.Error().Msgf("failed to print JSON: %s", err)
 				}
 			} else {
-				err = utils.PrintYAML(m.Substitutions.Subst)
+				err = utils.PrintYAML(substMap)
 				if err != nil {
-					log.Error().Msgf("failed to print JSON: %s", err)
+					log.Error().Msgf("failed to print YAML: %s", err)
 				}
 			}
 		}

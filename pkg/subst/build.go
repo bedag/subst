@@ -1,200 +1,275 @@
 package subst
 
 import (
-	"context"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 
-	decrypt "github.com/bedag/subst/internal/decryptors"
-	ejson "github.com/bedag/subst/internal/decryptors/ejson"
 	"github.com/bedag/subst/internal/kustomize"
-	"github.com/bedag/subst/internal/utils"
+	"github.com/bedag/subst/internal/wrapper"
 	"github.com/bedag/subst/pkg/config"
 	"github.com/rs/zerolog/log"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
+	"gopkg.in/yaml.v3"
 )
 
-type Build struct {
-	Manifests     []map[interface{}]interface{}
+// Subst represents a simplified subst processor for CMP
+type Subst struct {
 	Kustomization *kustomize.Kustomize
-	Substitutions *Substitutions
-	cfg           config.Configuration
-	kubeClient    *kubernetes.Clientset
+	Manifests     [][]byte // Store as byte slices for simplicity
+	Substitutions map[string]interface{}
 }
 
-func New(config config.Configuration) (build *Build, err error) {
-
+// NewSubst creates a new simplified Subst instance
+func NewSubst(config config.Configuration) (*Subst, error) {
 	k, err := kustomize.NewKustomize(config.RootDirectory)
 	if err != nil {
 		return nil, err
 	}
 
-	init := &Build{
-		cfg:           config,
+	// Get environment variables that match the regex
+	envVars, err := GetVariables(config.EnvRegex)
+	if err != nil {
+		return nil, err
+	}
+
+	subst := &Subst{
 		Kustomization: k,
+		Manifests:     [][]byte{},
+		Substitutions: envVars,
 	}
 
-	return init, err
+	// Load .vars files from kustomize paths
+	err = subst.loadVarsFiles()
+	if err != nil {
+		log.Warn().Msgf("Failed to load subst files: %v", err)
+	}
+
+	return subst, nil
 }
 
-func (b *Build) BuildSubstitutions() (err error) {
-	decryptors, cleanups, err := b.decryptors()
-	if err != nil {
-		return err
-	}
-
-	defer func() {
-		for _, cleanup := range cleanups {
-			cleanup()
-		}
-	}()
-
-	SubstitutionsConfig := SubstitutionsConfig{
-		EnvironmentRegex: b.cfg.EnvRegex,
-		SubstFileRegex:   b.cfg.FileRegex,
-	}
-
-	b.Substitutions, err = NewSubstitutions(SubstitutionsConfig, decryptors, b.Kustomization.Build)
-	if err != nil {
-		return err
-	}
-
-	err = b.loadSubstitutions()
-	if err != nil {
-		return err
-	}
-	return nil
-
-}
-
-func (b *Build) Build() (err error) {
-
-	if b.Substitutions == nil {
-		log.Debug().Msg("no resources to build")
-		return nil
-	}
-
-	decryptors, cleanups, err := b.decryptors()
-	if err != nil {
-		return err
-	}
-
-	defer func() {
-		for _, cleanup := range cleanups {
-			cleanup()
-		}
-	}()
-
-	// Run Build
-	log.Debug().Msg("substitute manifests")
-
-	for _, manifest := range b.Substitutions.Resources.Resources() {
-		var c map[interface{}]interface{}
-
-		mBytes, _ := manifest.MarshalJSON()
-		for _, d := range decryptors {
-			isEncrypted, err := d.IsEncrypted(mBytes)
-			if err != nil {
-				log.Error().Msgf("Error checking encryption for %s: %s", mBytes, err)
-				return err
-			}
-			if isEncrypted {
-				dm, err := d.Decrypt(mBytes)
-				if err != nil {
-					log.Error().Msgf("failed to decrypt %s: %s", mBytes, err)
-					return err
-				}
-				c = utils.ToInterface(dm)
+// loadVarsFiles loads subst.yaml files from the kustomize directory tree and parent directories
+func (s *Subst) loadVarsFiles() error {
+	paths := s.Kustomization.GetPaths()
+	
+	// For each kustomize path, also check parent directories for subst files
+	allPaths := make(map[string]bool)
+	for _, path := range paths {
+		allPaths[path] = true
+		
+		// Also check parent directories for common subst files
+		currentPath := path
+		for i := 0; i < 5; i++ { // Limit depth to avoid infinite loops
+			parentPath := filepath.Dir(currentPath)
+			if parentPath == currentPath || parentPath == "/" {
 				break
 			}
+			allPaths[parentPath] = true
+			currentPath = parentPath
 		}
-
-		if c == nil {
-			m, _ := manifest.AsYAML()
-
-			c, err = utils.ParseYAML(m)
-			if err != nil {
-				log.Error().Msgf("UnmarshalJSON: %s", err)
-				return err
-			}
-		}
-
-		f, err := b.Substitutions.Eval(c, nil, false)
-		if err != nil {
-			log.Error().Msgf("spruce evaluation failed %s/%s: %s", manifest.GetNamespace(), manifest.GetName(), err)
-			return err
-		}
-		b.Manifests = append(b.Manifests, f)
 	}
-
+	
+	// Load subst files from all paths
+	for path := range allPaths {
+		err := s.loadSubstFromPath(path)
+		if err != nil {
+			log.Warn().Msgf("Failed to load subst files from %s: %v", path, err)
+		}
+	}
+	
 	return nil
 }
 
-// builds the substitutions interface
-func (b *Build) loadSubstitutions() (err error) {
-
-	// Read Substition Files
-	err = b.Kustomization.Walk(b.Substitutions.Walk)
+// loadSubstFromPath loads subst.yaml files from a specific path
+func (s *Subst) loadSubstFromPath(basePath string) error {
+	entries, err := os.ReadDir(basePath)
 	if err != nil {
 		return err
 	}
-
-	// Final attempt to evaluate
-	eval, err := b.Substitutions.Eval(b.Substitutions.Subst, nil, false)
-	if err != nil {
-		return fmt.Errorf("spruce evaluation failed: %s", err)
-	}
-	b.Substitutions.Subst = eval
-
-	if len(b.Substitutions.Subst) > 0 {
-		log.Debug().Msgf("loaded substitutions: %+v", b.Substitutions.Subst)
-	} else {
-		log.Debug().Msg("no substitutions found")
-	}
-
-	return nil
-}
-
-// initialize decryption
-func (b *Build) decryptors() (decryptors []decrypt.Decryptor, cleanups []func(), err error) {
-
-	c := decrypt.DecryptorConfig{
-		SkipDecrypt: b.cfg.SkipDecrypt,
-	}
-
-	ed, err := ejson.NewEJSONDecryptor(c, "", b.cfg.EjsonKey...)
-	if err != nil {
-		return nil, nil, err
-	}
-	decryptors = append(decryptors, ed)
-
-	if b.cfg.SecretSkip {
-		return
-	}
-
-	if !b.cfg.SkipDecrypt && (b.cfg.SecretName != "" && b.cfg.SecretNamespace != "") {
-
-		var host string
-		if b.cfg.KubeAPI != "" {
-			host = b.cfg.KubeAPI
+	
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
 		}
-		cfg, err := clientcmd.BuildConfigFromFlags(host, b.cfg.Kubeconfig)
-		if err == nil {
-			b.kubeClient, err = kubernetes.NewForConfig(cfg)
+		
+		if entry.Name() == "subst.yaml" {
+			filePath := filepath.Join(basePath, entry.Name())
+			log.Debug().Msgf("Loading subst file: %s", filePath)
+			substData, err := s.loadSubstFile(filePath)
 			if err != nil {
-				log.Debug().Msgf("could not load kubernetes client: %s", err)
-			} else {
-				ctx := context.Background()
-				for _, decr := range decryptors {
-					err = decr.KeysFromSecret(b.cfg.SecretName, b.cfg.SecretNamespace, b.kubeClient, ctx)
-					if err != nil {
-						log.Debug().Msgf("failed to load secrets from Kubernetes: %s", err)
-					}
-				}
-
+				log.Warn().Msgf("Failed to load %s: %v", filePath, err)
+				continue
+			}
+			
+			// Merge subst data into substitutions
+			for k, v := range substData {
+				s.Substitutions[k] = v
 			}
 		}
 	}
+	
+	return nil
+}
 
-	return
+// loadSubstFile loads a single subst.yaml file and extracts the settings section
+func (s *Subst) loadSubstFile(filePath string) (map[string]interface{}, error) {
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, err
+	}
+	
+	var substFile map[string]interface{}
+	err = yaml.Unmarshal(content, &substFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse YAML in %s: %w", filePath, err)
+	}
+	
+	// Extract the settings section - this contains the substitution data
+	if settings, ok := substFile["settings"].(map[string]interface{}); ok {
+		return settings, nil
+	}
+	
+	// If no settings section, return empty map (not an error)
+	log.Debug().Msgf("No settings section found in %s", filePath)
+	return make(map[string]interface{}), nil
+}
+
+// loadVarsFile loads a single .vars file (legacy support)
+func (s *Subst) loadVarsFile(filePath string) (map[string]interface{}, error) {
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, err
+	}
+	
+	var vars map[string]interface{}
+	err = yaml.Unmarshal(content, &vars)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse YAML in %s: %w", filePath, err)
+	}
+	
+	return vars, nil
+}
+
+// BuildSubstitutions loads substitution variables
+func (s *Subst) BuildSubstitutions() error {
+	// For maximum simplicity, just use environment variables
+	// In future, this could be extended to load from .vars files
+	log.Debug().Msgf("Using %d environment substitutions", len(s.Substitutions))
+	return nil
+}
+
+// Build processes kustomize output with gomplate templates
+func (s *Subst) Build() error {
+	if s.Kustomization == nil {
+		return fmt.Errorf("no kustomization configured")
+	}
+
+	log.Debug().Msg("Building resources with simplified approach")
+
+	// Get YAML output from kustomize
+	yamlContent := s.Kustomization.GetYAML()
+	if yamlContent == "" {
+		return fmt.Errorf("kustomize produced no output")
+	}
+
+	// Structure the data for gomplate processing matching Spruce structure
+	templateData := make(map[string]interface{})
+	vars := make(map[string]interface{})
+	secretsData := make(map[string]interface{})
+	settings := make(map[string]interface{})
+	
+	for k, v := range s.Substitutions {
+		log.Debug().Msgf("Processing substitution: %s = %+v", k, v)
+		
+		if k == "secrets" {
+			// Handle secrets section from subst.yaml - put under settings
+			if secretsMap, ok := v.(map[string]interface{}); ok {
+				if data, ok := secretsMap["data"].(map[string]interface{}); ok {
+					log.Debug().Msg("Adding secrets.data from subst.yaml")
+					for secretKey, secretValue := range data {
+						secretsData[secretKey] = secretValue
+					}
+				}
+			}
+		} else if k == "vars" {
+			// Handle vars section from subst.yaml  
+			if varsMap, ok := v.(map[string]interface{}); ok {
+				log.Debug().Msg("Adding vars from subst.yaml")
+				for varKey, varValue := range varsMap {
+					vars[varKey] = varValue
+				}
+			}
+		} else if strings.HasPrefix(k, "ARGOCD_ENV_") {
+			// Handle environment variables
+			cleanKey := strings.TrimPrefix(k, "ARGOCD_ENV_")
+			
+			if strings.Contains(cleanKey, "password") || strings.Contains(cleanKey, "secret") {
+				log.Debug().Msgf("Adding %s to secrets.data", cleanKey)
+				secretsData[cleanKey] = v
+			} else if strings.HasPrefix(cleanKey, "cluster_") {
+				clusterKey := strings.TrimPrefix(cleanKey, "cluster_")
+				if cluster, ok := vars["cluster"].(map[string]interface{}); ok {
+					cluster[clusterKey] = v
+				} else {
+					vars["cluster"] = map[string]interface{}{clusterKey: v}
+				}
+			} else {
+				log.Debug().Msgf("Adding %s to vars", cleanKey)
+				vars[cleanKey] = v
+			}
+		} else if strings.Contains(k, "password") || strings.Contains(k, "secret") {
+			// Put secrets-like data into secrets.data
+			log.Debug().Msgf("Adding %s to secrets.data", k)
+			secretsData[k] = v
+		} else if strings.HasPrefix(k, "cluster_") {
+			// Put cluster vars into cluster object
+			clusterKey := strings.TrimPrefix(k, "cluster_")
+			log.Debug().Msgf("Adding %s to vars.cluster.%s", k, clusterKey)
+			if cluster, ok := vars["cluster"].(map[string]interface{}); ok {
+				cluster[clusterKey] = v
+			} else {
+				vars["cluster"] = map[string]interface{}{clusterKey: v}
+			}
+		} else {
+			// Other vars go directly into vars
+			log.Debug().Msgf("Adding %s to vars", k)
+			vars[k] = v
+		}
+	}
+	
+	// Set up the settings structure (like subst.yaml structure)
+	if len(vars) > 0 {
+		settings["vars"] = vars
+	}
+	if len(secretsData) > 0 {
+		settings["secrets"] = map[string]interface{}{
+			"data": secretsData,
+		}
+	}
+	
+	// Set up the template data structure with settings
+	templateData["vars"] = vars // Keep vars at top level for $.subst.vars.* syntax
+	if len(secretsData) > 0 {
+		templateData["secrets"] = map[string]interface{}{
+			"data": secretsData,
+		}
+	}
+	if len(settings) > 0 {
+		templateData["settings"] = settings // Add settings for $.subst.settings.* syntax
+	}
+
+	log.Debug().Msgf("Template data: %+v", templateData)
+
+	// Process the entire YAML content with gomplate
+	processedYAMLBytes, err := wrapper.ProcessGomplateTemplate([]byte(yamlContent), templateData, "")
+	if err != nil {
+		return fmt.Errorf("failed to process with gomplate: %w", err)
+	}
+
+	// For maximum simplicity, treat the entire output as one document
+	// This works fine for ArgoCD CMP which just needs valid YAML output
+	s.Manifests = [][]byte{processedYAMLBytes}
+
+	log.Debug().Msgf("Built %d manifest(s)", len(s.Manifests))
+	return nil
 }

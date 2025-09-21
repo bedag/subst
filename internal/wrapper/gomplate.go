@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
 	"text/template"
 
@@ -64,13 +65,34 @@ func IsGomplateTemplate(content []byte) bool {
 // ProcessGomplateTemplate processes templates using gomplate binary if available,
 // otherwise falls back to a simplified template processor
 func ProcessGomplateTemplate(templateContent []byte, envData map[string]interface{}, envRegex string) ([]byte, error) {
+	// First, convert Spruce syntax to Gomplate syntax
+	convertedContent := convertSpruceToGomplate(templateContent, envData)
+	
 	// Try to use gomplate binary first
 	if gomplateAvailable() {
-		return processWithGomplateBinary(templateContent, envData)
+		return processWithGomplateBinary(convertedContent, envData)
 	}
 	
 	// Fallback to go text/template with gomplate-like functions
-	return processWithFallbackTemplate(templateContent, envData)
+	return processWithFallbackTemplate(convertedContent, envData)
+}
+
+// convertSpruceToGomplate converts basic Spruce grab syntax to Gomplate syntax
+func convertSpruceToGomplate(content []byte, data map[string]interface{}) []byte {
+	contentStr := string(content)
+	originalContent := contentStr
+	
+	// Generic pattern: (( grab $.subst.any.path.here )) -> {{ .any.path.here }}
+	// This handles any nested path after $.subst.
+	re := regexp.MustCompile(`\(\(\s*grab\s+\$\.subst\.([^)]+)\s*\)\)`)
+	contentStr = re.ReplaceAllString(contentStr, `{{ .$1 }}`)
+	
+	if originalContent != contentStr {
+		// Uncomment for debugging template conversion
+		// fmt.Printf("DEBUG: Template conversion:\nBEFORE: %s\nAFTER: %s\n", originalContent, contentStr)
+	}
+	
+	return []byte(contentStr)
 }
 
 // gomplateAvailable checks if gomplate binary is available in PATH
@@ -81,14 +103,31 @@ func gomplateAvailable() bool {
 
 // processWithGomplateBinary uses the gomplate command-line tool
 func processWithGomplateBinary(templateContent []byte, envData map[string]interface{}) ([]byte, error) {
-	cmd := exec.Command("gomplate")
-	
-	// Set environment variables for gomplate
-	env := os.Environ()
-	for key, value := range envData {
-		env = append(env, fmt.Sprintf("%s=%v", key, value))
+	// Create a temporary file with the context data
+	contextData, err := yaml.Marshal(envData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal context data: %w", err)
 	}
-	cmd.Env = env
+	
+	// Create temp files for context data
+	tmpFile, err := os.CreateTemp("", "subst-context-*.yaml")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create temp file: %w", err)
+	}
+	defer os.Remove(tmpFile.Name())
+	defer tmpFile.Close()
+	
+	_, err = tmpFile.Write(contextData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write context data: %w", err)
+	}
+	tmpFile.Close()
+	
+	// Use gomplate with context file
+	cmd := exec.Command("gomplate", "--context", fmt.Sprintf(".=%s", tmpFile.Name()))
+	
+	// Set basic environment for gomplate (keeping existing env vars)
+	cmd.Env = os.Environ()
 	
 	// Pipe template content to gomplate
 	cmd.Stdin = bytes.NewReader(templateContent)
@@ -99,7 +138,7 @@ func processWithGomplateBinary(templateContent []byte, envData map[string]interf
 	cmd.Stderr = &stderr
 	
 	// Execute gomplate
-	err := cmd.Run()
+	err = cmd.Run()
 	if err != nil {
 		return nil, fmt.Errorf("gomplate execution failed: %w, stderr: %s", err, stderr.String())
 	}

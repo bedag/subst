@@ -1,22 +1,18 @@
 package kustomize
 
 import (
+	"bytes"
 	"fmt"
-	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
-	"sync"
-
-	"sigs.k8s.io/kustomize/api/krusty"
-	"sigs.k8s.io/kustomize/api/resmap"
-	kustypes "sigs.k8s.io/kustomize/api/types"
-	"sigs.k8s.io/kustomize/kyaml/filesys"
+	"strings"
 )
 
 type Kustomize struct {
-	Root  string
-	Paths []string
-	Build resmap.ResMap
+	Root    string
+	Paths   []string
+	BuildYAML string
 }
 
 func NewKustomize(root string) (*Kustomize, error) {
@@ -24,103 +20,55 @@ func NewKustomize(root string) (*Kustomize, error) {
 	if err := k.build(); err != nil {
 		return nil, err
 	}
-	if err := k.paths(root); err != nil {
-		return nil, err
-	}
-	if err := k.addPath(root); err != nil {
+	if err := k.findKustomizationFiles(); err != nil {
 		return nil, err
 	}
 	return k, nil
 }
 
-var kustomizeBuildMutex sync.Mutex
-
-func (k *Kustomize) addPath(path string) error {
-	p, err := filepath.Abs(path)
+func (k *Kustomize) build() error {
+	// Use kustomize binary instead of library
+	cmd := exec.Command("kustomize", "build", k.Root)
+	
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	
+	err := cmd.Run()
 	if err != nil {
-		return err
+		return fmt.Errorf("kustomize build failed: %w, stderr: %s", err, stderr.String())
 	}
-	for _, v := range k.Paths {
-		if v == p {
-			return nil
-		}
-	}
-	k.Paths = append(k.Paths, p)
+	
+	k.BuildYAML = stdout.String()
 	return nil
 }
 
-func (k *Kustomize) paths(path string) error {
-	path = convertPath(path)
-	kz, err := kustomizeFile(path)
-	if err != nil {
-		return err
-	}
-
-	for _, patch := range kz.Patches {
-		if err := k.addPath(filepath.Join(path, filepath.Dir(patch.Path))); err != nil {
-			return err
-		}
-	}
-
-	for _, resource := range kz.Resources {
-		if !isRemoteFile(resource) {
-			p := filepath.Join(path, resource)
-			file, err := os.Stat(p)
-			if err != nil {
-				return err
-			}
-			if file.IsDir() {
-				p = convertPath(p)
-				if err := k.paths(p); err != nil {
-					return err
-				}
-				if err := k.addPath(p); err != nil {
-					return err
-				}
-			}
-		}
-	}
-	return nil
-}
-
-func (k *Kustomize) Walk(fn func(path string, f fs.FileInfo) error) error {
-	for _, path := range k.Paths {
-		files, err := os.ReadDir(path)
+func (k *Kustomize) findKustomizationFiles() error {
+	// Find all kustomization files in the directory tree
+	err := filepath.WalkDir(k.Root, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		for _, entry := range files {
-			file, err := entry.Info()
-			if err != nil {
-				return err
-			}
-			if err := fn(path, file); err != nil {
-				return err
-			}
+		
+		if d.IsDir() {
+			return nil
 		}
-	}
-	return nil
+		
+		filename := strings.ToLower(d.Name())
+		if filename == "kustomization.yaml" || filename == "kustomization.yml" || filename == "kustomization" {
+			k.Paths = append(k.Paths, filepath.Dir(path))
+		}
+		
+		return nil
+	})
+	
+	return err
 }
 
-func (k *Kustomize) build() (err error) {
-	fs := filesys.MakeFsOnDisk()
+func (k *Kustomize) GetYAML() string {
+	return k.BuildYAML
+}
 
-	kustomizeBuildMutex.Lock()
-	defer kustomizeBuildMutex.Unlock()
-
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("recovered from kustomize build panic: %v", r)
-		}
-	}()
-
-	buildOptions := &krusty.Options{
-		LoadRestrictions: kustypes.LoadRestrictionsNone,
-		PluginConfig:     kustypes.EnabledPluginConfig(kustypes.BuiltinPluginLoadingOptions(kustypes.PluginRestrictionsNone)),
-	}
-
-	b := krusty.MakeKustomizer(buildOptions)
-
-	k.Build, err = b.Run(fs, k.Root)
-	return err
+func (k *Kustomize) GetPaths() []string {
+	return k.Paths
 }

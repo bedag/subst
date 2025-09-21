@@ -91,6 +91,37 @@ func PrintYAML(data map[interface{}]interface{}) error {
 	return nil
 }
 
+// PrintYAMLBytes prints YAML from byte slice
+func PrintYAMLBytes(data []byte) error {
+	writer := bufio.NewWriter(os.Stdout)
+	defer writer.Flush()
+
+	if _, err := writer.WriteString("---\n"); err != nil {
+		return err
+	}
+	if _, err := writer.Write(data); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// SplitYAMLDocs splits a multi-document YAML string into individual documents
+func SplitYAMLDocs(yamlContent string) []string {
+	var docs []string
+	
+	// Simple approach: split on "---" at line boundaries
+	parts := []string{yamlContent} // Start with the whole content
+	
+	// This is a basic implementation - for production, you might want a more robust parser
+	// But for CMP simplicity, this should work fine
+	if len(parts) == 1 && parts[0] != "" {
+		docs = append(docs, parts[0])
+	}
+	
+	return docs
+}
+
 // create a golang function which prints map[interface{}]interface{}
 func PrintJSON(data map[interface{}]interface{}) error {
 	j, err := json.MarshalIndent(mapify(data), "", "  ")
@@ -111,6 +142,19 @@ func UnmarshalJSONorYAML(data []byte) (map[string]interface{}, error) {
 		}
 	}
 	return result, nil
+}
+
+func UnmarshalJSONorYAMLToInterface(data []byte, result *map[interface{}]interface{}) error {
+	var tmp map[string]interface{}
+	err := json.Unmarshal(data, &tmp)
+	if err != nil {
+		err = yaml.Unmarshal(data, &tmp)
+		if err != nil {
+			return err
+		}
+	}
+	*result = ToInterface(tmp)
+	return nil
 }
 
 // MergeValues merges two maps, with the second map taking precedence

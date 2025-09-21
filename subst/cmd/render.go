@@ -71,7 +71,9 @@ func render(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed loading configuration: %w", err)
 	}
-	m, err := subst.New(*configuration)
+	
+	// Use the new simplified Subst
+	m, err := subst.NewSubst(*configuration)
 	if err != nil {
 		return err
 	}
@@ -89,14 +91,20 @@ func render(cmd *cobra.Command, args []string) error {
 		if m.Manifests != nil {
 			for _, f := range m.Manifests {
 				if configuration.Output == "json" {
-					err = utils.PrintJSON(f)
+					// Convert bytes to map for JSON output
+					var data map[interface{}]interface{}
+					if err := utils.UnmarshalJSONorYAMLToInterface(f, &data); err != nil {
+						log.Error().Msgf("failed to unmarshal for JSON: %s", err)
+						continue
+					}
+					err = utils.PrintJSON(data)
 					if err != nil {
 						log.Error().Msgf("failed to print JSON: %s", err)
 					}
 				} else {
-					err = utils.PrintYAML(f)
+					err = utils.PrintYAMLBytes(f)
 					if err != nil {
-						log.Error().Msgf("failed to print JSON: %s", err)
+						log.Error().Msgf("failed to print YAML: %s", err)
 					}
 				}
 			}

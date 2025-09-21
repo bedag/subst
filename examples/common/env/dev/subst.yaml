@@ -1,0 +1,13 @@
+settings:
+  vars:
+    cluster:
+      name: "dev-cluster"
+      id: 1
+  secrets:
+    data:
+      database_password: "dev-secret-password"
+  dns:
+    domain: "dev.company.com"
+    nameservers:
+      - "2.2.2.2"
+      - "2.2.2.3"
